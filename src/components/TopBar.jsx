@@ -1,4 +1,4 @@
-import { BookOpen, Box, CircleGauge, CloudLightning, Droplets, Gauge, Music2, PackageOpen, RotateCcw, ShieldCheck, Truck, Users, Wind } from 'lucide-react'
+import { BookOpen, Box, CircleGauge, CloudLightning, Droplets, Gauge, Music2, PackageOpen, RotateCcw, Save, ShieldCheck, Truck, Users, Wind } from 'lucide-react'
 
 function Resource({ icon: Icon, label, value, detail, tone = 'gold' }) {
   return (
@@ -9,7 +9,7 @@ function Resource({ icon: Icon, label, value, detail, tone = 'gold' }) {
   )
 }
 
-export default function TopBar({ state, stats, musicOpen, onMusic, onFieldGuide, onGuide, onCrew, onRovers, onReset }) {
+export default function TopBar({ state, stats, musicOpen, onMusic, onFieldGuide, onGuide, onCrew, onRovers, onReset, onSaves }) {
   const powerTone = stats.powerCapacity >= stats.powerDemand ? 'gold' : 'danger'
   return (
     <header className="top-bar">
@@ -33,6 +33,7 @@ export default function TopBar({ state, stats, musicOpen, onMusic, onFieldGuide,
         <button onClick={onGuide} title="Mission guide" aria-label="Open mission guide"><ShieldCheck /></button>
         <button className="crew-tool" onClick={onCrew} title="Crew roster" aria-label="Open crew roster"><Users /><span>{state.crew}</span></button>
         <button className="rover-tool" onClick={onRovers} title="Rover dispatch" aria-label="Open rover dispatch"><Truck /><span>{stats.rovers.assigned}/{stats.rovers.fleet}</span></button>
+        <button onClick={onSaves} title="Saved missions" aria-label="Open saved missions"><Save /></button>
         <button onClick={onReset} title="Reset mission" aria-label="Reset mission"><RotateCcw /></button>
       </div>
     </header>

@@ -32,7 +32,7 @@ export const BUILDINGS = {
   },
   workshop: {
     id: 'workshop', name: 'Machine Workshop', frame: 6, category: 'industry', buildable: true,
-    description: 'Turns stock material into replacement parts and reduces dependence on Earth.',
+    description: 'Processes provisioned metal feedstock into replacement parts. Feedstock is bundled for this short campaign.',
     cost: { parts: 60, cargo: 2 }, powerUse: 18, parts: 12, maintenance: 0.7, labor: { engineering: 1.25, operations: 0.5 },
   },
   storage: {
@@ -43,13 +43,13 @@ export const BUILDINGS = {
   },
   battery: {
     id: 'battery', name: 'Grid Battery Bank', atlas: 'building-expansion', frame: 0, category: 'power', buildable: true,
-    description: 'Stores clear-weather surplus and dispatches it when generation falls below settlement demand.',
-    cost: { parts: 52, cargo: 1.6 }, powerUse: 1, batteryCapacity: 260, batteryChargeRate: 85,
+    description: 'A 6 MWh storage block. Stores surplus and supplies limited backup power; the reserve must cover the full 24.6-hour sol.',
+    cost: { parts: 52, cargo: 1.6 }, powerUse: 1, batteryCapacity: 6000, batteryChargeRate: 85,
     batteryDischargeRate: 110, maintenance: 0.7, labor: { engineering: 0.6 },
   },
   greenhouse: {
     id: 'greenhouse', name: 'Sealed Greenhouse', atlas: 'building-expansion', frame: 1, category: 'life-support', buildable: true,
-    description: 'Turns water, power, crew time, and imported nutrients into a renewable food supply.',
+    description: 'Turns water, power, crew time, and a provisioned nutrient stock into a renewable food supply. Nutrients are bundled for this short campaign.',
     cost: { parts: 55, cargo: 2 }, powerUse: 28, waterUse: 12, food: 18,
     maintenance: 0.7, labor: { operations: 0.5, support: 0.25 },
   },

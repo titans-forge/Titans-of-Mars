@@ -1,0 +1,402 @@
+{
+  "version": 9,
+  "sponsorId": "american-compact",
+  "sponsor": "American Public-Private Compact",
+  "earthYear": 2033,
+  "settlementName": "Ares Pathfinder",
+  "siteName": "ARCADIA PLANITIA · SITE 03",
+  "transferAuthority": "Earth-Mars Transfer Authority",
+  "manifestId": "industrial-seed",
+  "manifestDoctrine": "Local Industry",
+  "buildDiscounts": {
+    "workshop": {
+      "parts": 30,
+      "cargo": 1
+    },
+    "habitat": {
+      "parts": 25,
+      "cargo": 0.8
+    }
+  },
+  "phase": "expansion",
+  "phaseOneCompleted": true,
+  "transferWindowPending": false,
+  "secondManifestId": "permanent-crew",
+  "secondManifestDoctrine": "Population First",
+  "pendingEventId": null,
+  "resolvedEventIds": [
+    "us-congressional-audit",
+    "us-insurance-control"
+  ],
+  "rivalSettlementId": "tianwen-network",
+  "rivalRelations": 68,
+  "strategicPosition": 59,
+  "pendingRivalEncounterId": null,
+  "resolvedRivalEncounterIds": [
+    "us-orbital-relay"
+  ],
+  "debrisSurvived": true,
+  "sol": 41,
+  "speed": 0,
+  "resources": {
+    "water": 3932.9,
+    "oxygen": 2154.7,
+    "food": 899.9,
+    "parts": 102.4,
+    "cargo": 3,
+    "confidence": 91,
+    "integrity": 100
+  },
+  "crew": 10,
+  "crewMembers": [
+    {
+      "id": "elena-torres",
+      "name": "Elena Torres",
+      "role": "Mission Commander",
+      "cohort": "operations",
+      "trait": "command",
+      "health": 100,
+      "fatigue": 14,
+      "active": true
+    },
+    {
+      "id": "malik-reed",
+      "name": "Malik Reed",
+      "role": "Grid Engineer",
+      "cohort": "engineering",
+      "trait": "systems",
+      "health": 100,
+      "fatigue": 20,
+      "active": true
+    },
+    {
+      "id": "dana-cho",
+      "name": "Dana Cho",
+      "role": "Surface Operations",
+      "cohort": "operations",
+      "trait": "surface",
+      "health": 100,
+      "fatigue": 14,
+      "active": true
+    },
+    {
+      "id": "priya-shah",
+      "name": "Priya Shah",
+      "role": "Flight Surgeon",
+      "cohort": "support",
+      "trait": "medical",
+      "health": 100,
+      "fatigue": 14,
+      "active": true
+    },
+    {
+      "id": "owen-mercer",
+      "name": "Owen Mercer",
+      "role": "Planetary Scientist",
+      "cohort": "support",
+      "trait": "science",
+      "health": 100,
+      "fatigue": 14,
+      "active": true
+    },
+    {
+      "id": "tessa-brooks",
+      "name": "Tessa Brooks",
+      "role": "Cargo and Supply",
+      "cohort": "operations",
+      "trait": "logistics",
+      "health": 100,
+      "fatigue": 14,
+      "active": true
+    },
+    {
+      "id": "jonah-price",
+      "name": "Jonah Price",
+      "role": "Mechanical Engineer",
+      "cohort": "engineering",
+      "trait": "systems",
+      "health": 100,
+      "fatigue": 20,
+      "active": true
+    },
+    {
+      "id": "maya-santos",
+      "name": "Maya Santos",
+      "role": "Agronomy Lead",
+      "cohort": "support",
+      "trait": "medical",
+      "health": 100,
+      "fatigue": 14,
+      "active": true
+    },
+    {
+      "id": "caleb-wright",
+      "name": "Caleb Wright",
+      "role": "Rover Pilot",
+      "cohort": "operations",
+      "trait": "surface",
+      "health": 100,
+      "fatigue": 14,
+      "active": true
+    },
+    {
+      "id": "nora-kim",
+      "name": "Nora Kim",
+      "role": "Civic Systems",
+      "cohort": "residents",
+      "trait": "command",
+      "health": 100,
+      "fatigue": 0.4000000000000028,
+      "active": true
+    }
+  ],
+  "crewLeadId": "elena-torres",
+  "crewCohorts": {
+    "engineering": 3,
+    "operations": 4,
+    "support": 2,
+    "residents": 1
+  },
+  "crossTraining": "engineering",
+  "roverFleet": 2,
+  "roverAssignments": {
+    "water": 1,
+    "construction": 0,
+    "maintenance": 1,
+    "survey": 0
+  },
+  "siteSurveyProgress": 6,
+  "surveyedFeatureIds": [
+    "arcadia-west",
+    "arcadia-central"
+  ],
+  "sciencePoints": 16,
+  "batteryCharge": 0,
+  "pendingOperationalIncidentId": null,
+  "resolvedOperationalIncidentIds": [
+    "crew-sleep-deficit",
+    "solar-particle-watch",
+    "recycler-biofilm",
+    "pressure-microfracture"
+  ],
+  "decisionLog": [
+    {
+      "sol": 1,
+      "category": "Founding manifest",
+      "title": "Industrial Seed",
+      "choice": "Local Industry"
+    },
+    {
+      "sol": 2,
+      "category": "Science",
+      "title": "Ground survey discovery",
+      "choice": "West Shelf Permafrost"
+    },
+    {
+      "sol": 4,
+      "category": "Science",
+      "title": "Ground survey discovery",
+      "choice": "Central Ice Table"
+    },
+    {
+      "sol": 7,
+      "category": "Operational incident",
+      "title": "The Crew Is Running a Sleep Debt",
+      "choice": "Order a protected stand-down"
+    },
+    {
+      "sol": 12,
+      "category": "Sponsor directive",
+      "title": "The Telemetry Audit",
+      "choice": "Publish the telemetry"
+    },
+    {
+      "sol": 15,
+      "category": "Operational incident",
+      "title": "Solar Particle Watch",
+      "choice": "Move the crew into shelter"
+    },
+    {
+      "sol": 24,
+      "category": "Second transfer",
+      "title": "Permanent Crew Rotation",
+      "choice": "Population First"
+    },
+    {
+      "sol": 27,
+      "category": "Mars relations",
+      "title": "The Orbital Relay Window",
+      "choice": "Build the relay together"
+    },
+    {
+      "sol": 30,
+      "category": "Sponsor directive",
+      "title": "The Shutdown Clause",
+      "choice": "Accept the clause"
+    },
+    {
+      "sol": 32,
+      "category": "Operational incident",
+      "title": "Biofilm in the Water Loop",
+      "choice": "Steam-sterilize the loop"
+    },
+    {
+      "sol": 38,
+      "category": "Operational incident",
+      "title": "A Microfracture in the Utility Spine",
+      "choice": "Excavate and patch the spine"
+    }
+  ],
+  "buildings": [
+    {
+      "uid": "cargo-1",
+      "type": "cargo",
+      "col": 1,
+      "row": 2,
+      "integrity": 100
+    },
+    {
+      "uid": "solar-1",
+      "type": "solar",
+      "col": 3,
+      "row": 1,
+      "integrity": 100
+    },
+    {
+      "uid": "storage-1",
+      "type": "storage",
+      "col": 3,
+      "row": 4,
+      "integrity": 100
+    },
+    {
+      "uid": "nuclear-1-4",
+      "type": "nuclear",
+      "col": 4,
+      "row": 0,
+      "integrity": 100
+    },
+    {
+      "uid": "habitat-1-5",
+      "type": "habitat",
+      "col": 5,
+      "row": 3,
+      "integrity": 100
+    },
+    {
+      "uid": "oxygen-1-6",
+      "type": "oxygen",
+      "col": 4,
+      "row": 2,
+      "integrity": 100
+    },
+    {
+      "uid": "ice-4-7",
+      "type": "ice",
+      "col": 5,
+      "row": 1,
+      "integrity": 100
+    },
+    {
+      "uid": "workshop-24-8",
+      "type": "workshop",
+      "col": 5,
+      "row": 4,
+      "integrity": 100
+    },
+    {
+      "uid": "storage-24-9",
+      "type": "storage",
+      "col": 0,
+      "row": 0,
+      "integrity": 100
+    },
+    {
+      "uid": "habitat-24-10",
+      "type": "habitat",
+      "col": 7,
+      "row": 5,
+      "integrity": 100
+    },
+    {
+      "uid": "greenhouse-24-11",
+      "type": "greenhouse",
+      "col": 6,
+      "row": 4,
+      "integrity": 100
+    },
+    {
+      "uid": "recycling-24-12",
+      "type": "recycling",
+      "col": 6,
+      "row": 3,
+      "integrity": 100
+    }
+  ],
+  "selectedUid": "solar-1",
+  "buildMode": null,
+  "stormSurvived": true,
+  "outcome": null,
+  "log": [
+    {
+      "sol": 38,
+      "tone": "warning",
+      "message": "The utility spine is excavated and patched before the fracture propagates."
+    },
+    {
+      "sol": 38,
+      "tone": "danger",
+      "message": "Settlement integrity reports an immediate incident: A Microfracture in the Utility Spine."
+    },
+    {
+      "sol": 37,
+      "tone": "success",
+      "message": "The debris front has passed. Local maintenance teams kept every pressure system operational."
+    },
+    {
+      "sol": 34,
+      "tone": "success",
+      "message": "Solar Array restored to full operating integrity for 8 parts."
+    },
+    {
+      "sol": 34,
+      "tone": "danger",
+      "message": "Solar Array took a debris strike and lost 20 integrity. Repair crews are awaiting parts authorization."
+    },
+    {
+      "sol": 34,
+      "tone": "danger",
+      "message": "A micrometeoroid front is crossing ARCADIA PLANITIA. Inspection cycles and replacement-parts demand have surged."
+    },
+    {
+      "sol": 32,
+      "tone": "warning",
+      "message": "The reclamation loop is sterilized and rebuilt around a better sampling schedule."
+    },
+    {
+      "sol": 32,
+      "tone": "danger",
+      "message": "Water recycling reports an immediate incident: Biofilm in the Water Loop."
+    },
+    {
+      "sol": 30,
+      "tone": "warning",
+      "message": "The settlement accepts the shutdown clause. Insurance coverage restores spares and confidence, at the cost of another Earth-side veto."
+    },
+    {
+      "sol": 30,
+      "tone": "danger",
+      "message": "Launch Insurance Consortium requires an immediate command decision: The Shutdown Clause."
+    },
+    {
+      "sol": 27,
+      "tone": "success",
+      "message": "Ares and Tianwen commission the first shared orbital utility. Trust rises and the American settlement gains influence through technical leadership."
+    },
+    {
+      "sol": 27,
+      "tone": "warning",
+      "message": "Mars Communications Board requires a settlement policy: The Orbital Relay Window."
+    }
+  ]
+}

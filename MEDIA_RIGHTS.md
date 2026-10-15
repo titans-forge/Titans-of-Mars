@@ -1,6 +1,6 @@
 # Media Rights and Provenance
 
-The MIT License applies to source code. It does not automatically apply to media.
+Earlier source-code grants, including MIT, remain available for their material. The current edition’s prospective Forge Game License 2.0 scope is defined in [LICENSING.md](./LICENSING.md) and [LICENSING_CHECKPOINT.json](./LICENSING_CHECKPOINT.json). Neither source-code notice overrides the separate rights of media, recordings or dependencies.
 
 ## Project-generated media
 

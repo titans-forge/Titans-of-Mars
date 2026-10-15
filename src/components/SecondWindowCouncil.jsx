@@ -11,8 +11,8 @@ export default function SecondWindowCouncil({ state, onSelect }) {
       <section className="manifest-council second-window-council" role="dialog" aria-modal="true" aria-labelledby="second-window-title">
         <header>
           <p>Sol 24 Settlement Review · Sponsor Confidence {Math.round(state.resources.confidence)}%</p>
-          <h1 id="second-window-title">The Second Window Opens</h1>
-          <span>The sponsor has accepted the first city. Decide what kind of city the next launch will build.</span>
+          <h1 id="second-window-title">Authorize the Follow-On Package</h1>
+          <span>The sponsor has accepted the landing site. In this scenario, the follow-on convoy was launched before your landing. This review compresses its arrival and surface allocation; it is not a new Earth-to-Mars flight completed in 24 sols.</span>
         </header>
         <div className="manifest-grid">
           {manifests.map((manifest) => {
@@ -44,7 +44,7 @@ export default function SecondWindowCouncil({ state, onSelect }) {
             )
           })}
         </div>
-        <footer>The Sol 42 review will judge housing, maintenance capacity, protected reserves, and replacement-parts margin.</footer>
+        <footer>Real interplanetary deliveries take far longer than this review interval. The Sol 42 audit tests connected systems, usable housing, staffing and a 30-sol no-delivery operating forecast. A passing forecast does not itself mean every production flow is independent.</footer>
       </section>
     </div>
   )

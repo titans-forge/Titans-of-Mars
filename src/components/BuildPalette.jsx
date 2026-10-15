@@ -1,4 +1,4 @@
-import { CirclePause, FastForward, Hammer, Play, Zap } from 'lucide-react'
+import { Hammer } from 'lucide-react'
 import { BUILDINGS, BUILD_MENU } from '../game/buildings.js'
 import { buildingCost } from '../game/simulation.js'
 
@@ -13,7 +13,7 @@ function SpriteThumb({ atlas, frame }) {
   return <span className="sprite-thumb" style={{ backgroundImage: `url('./assets/${expansion ? 'building-atlas-expansion.png' : 'building-atlas.png'}')`, backgroundPosition: `${x}% ${y}%`, backgroundSize: `${columns * 100}% ${rows * 100}%` }} />
 }
 
-export default function BuildPalette({ state, onBuildMode, onSpeed }) {
+export default function BuildPalette({ state, onBuildMode }) {
   return (
     <footer className="build-dock">
       <div className="dock-title"><Hammer /><strong>Build</strong><span>Select a structure, then choose a surveyed cell.</span></div>
@@ -38,12 +38,7 @@ export default function BuildPalette({ state, onBuildMode, onSpeed }) {
           )
         })}
       </div>
-      <div className="time-controls" aria-label="Simulation speed">
-        <button className={state.speed === 0 ? 'active' : ''} disabled={!state.manifestId || state.transferWindowPending || state.pendingEventId || state.pendingRivalEncounterId || state.pendingOperationalIncidentId} onClick={() => onSpeed(0)} title="Pause"><CirclePause /></button>
-        <button className={state.speed === 1 ? 'active' : ''} disabled={!state.manifestId || state.transferWindowPending || state.pendingEventId || state.pendingRivalEncounterId || state.pendingOperationalIncidentId} onClick={() => onSpeed(1)} title="Normal speed"><Play /><span>1x</span></button>
-        <button className={state.speed === 4 ? 'active' : ''} disabled={!state.manifestId || state.transferWindowPending || state.pendingEventId || state.pendingRivalEncounterId || state.pendingOperationalIncidentId} onClick={() => onSpeed(4)} title="Fast speed"><FastForward /><span>4x</span></button>
-        <button className={state.speed === 12 ? 'active' : ''} disabled={!state.manifestId || state.transferWindowPending || state.pendingEventId || state.pendingRivalEncounterId || state.pendingOperationalIncidentId} onClick={() => onSpeed(12)} title="Maximum speed"><Zap /><span>12x</span></button>
-      </div>
+
     </footer>
   )
 }

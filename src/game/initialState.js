@@ -6,9 +6,12 @@ export function createInitialState(sponsorId = null) {
   const sponsor = sponsorById(sponsorId)
   const preview = sponsor ?? sponsorById('american-compact')
   const rival = sponsor ? rivalSettlementFor(sponsor.id) : null
-  const crewMembers = createCrewMembers(preview.id, 6)
+  const crewMembers = createCrewMembers(preview.id, 6, preview.crewCohorts)
   return {
     version: 9,
+    mechanicsVersion: 2,
+    assignmentCommitment: null,
+    policyEffects: {},
     sponsorId: sponsor?.id ?? null,
     sponsor: sponsor?.name ?? 'Sponsor awaiting selection',
     earthYear: sponsor?.earthYear ?? 2033,

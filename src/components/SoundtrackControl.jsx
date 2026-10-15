@@ -1,12 +1,7 @@
 import { ExternalLink, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { parseStoredVolume, soundtrackTrackIdForState, soundtrackTracks } from '../game/soundtrack.js'
+import { loadMusicVolume, saveMusicVolume, soundtrackTrackIdForState, soundtrackTracks } from '../game/soundtrack.js'
 
-const VOLUME_KEY = 'titans-of-mars-music-volume'
-
-function storedVolume() {
-  return parseStoredVolume(window.localStorage.getItem(VOLUME_KEY))
-}
 
 export default function SoundtrackControl({ open, state, stats, onClose }) {
   const audioRef = useRef(null)
@@ -15,7 +10,7 @@ export default function SoundtrackControl({ open, state, stats, onClose }) {
   const [trackIndex, setTrackIndex] = useState(() => Math.max(0, soundtrackTracks.findIndex((track) => track.id === recommendedId)))
   const [playing, setPlaying] = useState(false)
   const [muted, setMuted] = useState(false)
-  const [volume, setVolume] = useState(storedVolume)
+  const [volume, setVolume] = useState(() => loadMusicVolume(() => window.localStorage))
   const [playbackError, setPlaybackError] = useState('')
   const track = soundtrackTracks[trackIndex]
 
@@ -43,7 +38,7 @@ export default function SoundtrackControl({ open, state, stats, onClose }) {
     if (!audio) return
     audio.volume = volume
     audio.muted = muted
-    window.localStorage.setItem(VOLUME_KEY, String(volume))
+    saveMusicVolume(() => window.localStorage, volume)
   }, [muted, volume])
 
   const togglePlayback = async () => {

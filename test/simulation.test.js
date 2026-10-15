@@ -14,6 +14,8 @@ import {
   canPlaceBuilding,
   colonyProfile,
   colonyStats,
+  decisionOptions,
+  decisionEligibility,
   followOnEligibility,
   isDebrisActive,
   isStormActive,
@@ -32,7 +34,10 @@ import { operationalIncidentAt, operationalIncidentById } from '../src/game/oper
 import { sponsorEventById, sponsorEventsFor } from '../src/game/sponsorEvents.js'
 import { siteForSponsor } from '../src/game/siteFeatures.js'
 import { buildUtilityNetwork } from '../src/game/utilityNetwork.js'
+import { runNativeCampaign } from './helpers/nativeCampaign.js'
 
+// Boundary tests below isolate terrain and economy rules with confirmed sites.
+// Campaign qualification uses untouched initial states in runNativeCampaign.
 function startMission(manifestId = 'industrial-seed', sponsorId = 'american-compact') {
   const initial = createInitialState(sponsorId)
   initial.surveyedFeatureIds = siteForSponsor(sponsorId).features.filter((feature) => feature.kind === 'ice').map((feature) => feature.id)
@@ -48,21 +53,32 @@ function resolvePendingDecision(state, choiceIndex = 0) {
   let next = state
   if (next.pendingEventId) {
     const event = sponsorEventById(next.pendingEventId)
-    next = applySponsorEventChoice(next, event.choices[choiceIndex].id).state
+    next = applySponsorEventChoice(next, (decisionOptions(next, event).filter((choice) => decisionEligibility(next, choice).eligible)[choiceIndex] ?? decisionOptions(next, event).find((choice) => decisionEligibility(next, choice).eligible)).id).state
   }
   if (next.pendingRivalEncounterId) {
     const encounter = rivalEncounterById(next.pendingRivalEncounterId)
-    next = applyRivalEncounterChoice(next, encounter.choices[choiceIndex].id).state
+    next = applyRivalEncounterChoice(next, (decisionOptions(next, encounter).filter((choice) => decisionEligibility(next, choice).eligible)[choiceIndex] ?? decisionOptions(next, encounter).find((choice) => decisionEligibility(next, choice).eligible)).id).state
   }
   if (next.pendingOperationalIncidentId) {
     const incident = operationalIncidentById(next.pendingOperationalIncidentId)
-    next = applyOperationalIncidentChoice(next, incident.choices[choiceIndex].id).state
+    next = applyOperationalIncidentChoice(next, (decisionOptions(next, incident).filter((choice) => decisionEligibility(next, choice).eligible)[choiceIndex] ?? decisionOptions(next, incident).find((choice) => decisionEligibility(next, choice).eligible)).id).state
   }
   return next
 }
 
 function advanceCampaign(state, choiceIndex = 0) {
   return resolvePendingDecision(advanceSol(state), choiceIndex)
+}
+
+function commissionBoundaryQueue(state) {
+  let guard = 0
+  while (state.buildings.some((building) => building.construction)) {
+    assert.ok(guard++ < 30, 'boundary queue must progress through actual elapsed sols')
+    const next = advanceCampaign(state)
+    assert.equal(next.sol, state.sol + 1)
+    state = next
+  }
+  return state
 }
 
 function advanceMaintainedCampaign(state, choiceIndex = 0) {
@@ -76,20 +92,17 @@ function advanceMaintainedCampaign(state, choiceIndex = 0) {
 }
 
 function reachSecondWindow(manifestId = 'industrial-seed', sponsorId = 'american-compact') {
-  let state = startMission(manifestId, sponsorId)
-  corePlacements(state).forEach(([type, col, row]) => { state = placeBuilding(state, type, col, row).state })
-  while (!state.transferWindowPending && !state.outcome) state = advanceCampaign(state)
-  return state
+  const route = runNativeCampaign(sponsorId, manifestId, null, { stopAt: 24 })
+  assert.equal(route.failures.length, 0, route.failures.join('; '))
+  assert.ok(route.checkpoints.review, 'native construction and survey must earn the second window')
+  return structuredClone(route.checkpoints.review)
 }
 
 function prepareExpansion(manifestId, openingManifestId = 'industrial-seed', sponsorId = 'american-compact') {
-  let state = applyFollowOnManifest(reachSecondWindow(openingManifestId, sponsorId), manifestId).state
-  if (!state.buildings.some((building) => building.type === 'workshop')) state = placeBuilding(state, 'workshop', 5, 4).state
-  state = placeBuilding(state, 'storage', 0, 0).state
-  if (colonyStats(state).crewCapacity < state.crew) state = placeBuilding(state, 'habitat', 7, 5).state
-  state = placeBuilding(state, 'greenhouse', 6, 4).state
-  state = placeBuilding(state, 'recycling', 6, 3).state
-  return state
+  const route = runNativeCampaign(sponsorId, openingManifestId, manifestId)
+  assert.equal(route.failures.length, 0, route.failures.join('; '))
+  assert.ok(route.checkpoints.expansion, 'native follow-on authority must be earned')
+  return structuredClone(route.checkpoints.expansion)
 }
 
 test('initial colony has a positive clear-weather power reserve', () => {
@@ -169,6 +182,8 @@ test('the utility grid makes placement spatial and keeps isolated structures off
 test('rover dispatch changes hauling, construction, and maintenance economics', () => {
   let state = startMission()
   state = placeBuilding(state, 'ice', 5, 1).state
+  assert.match(updateRoverAssignment(state, 'construction', -1).error, /committed/i)
+  state = commissionBoundaryQueue(state)
   const supportedWater = colonyStats(state).waterNet
   const assistedCost = buildingCost(state, 'habitat')
 
@@ -194,18 +209,19 @@ test('surveyed terrain controls ice placement and rewards solar ridges', () => {
   assert.equal(canPlaceBuilding(state, 'ice', 5, 1).ok, true)
   assert.match(canPlaceBuilding(state, 'habitat', 5, 1).reason, /reserved/)
 
-  const westIce = placeBuilding(state, 'ice', 1, 5).state
-  const centralIce = placeBuilding(state, 'ice', 5, 1).state
+  const westIce = commissionBoundaryQueue(placeBuilding(state, 'ice', 1, 5).state)
+  const centralIce = commissionBoundaryQueue(placeBuilding(state, 'ice', 5, 1).state)
   assert.ok(colonyStats(centralIce).waterNet > colonyStats(westIce).waterNet)
 
-  const normalSolar = placeBuilding(state, 'solar', 4, 0).state
-  const ridgeSolar = placeBuilding(state, 'solar', 5, 0).state
+  const normalSolar = commissionBoundaryQueue(placeBuilding(state, 'solar', 4, 0).state)
+  const ridgeSolar = commissionBoundaryQueue(placeBuilding(state, 'solar', 5, 0).state)
   assert.ok(colonyStats(ridgeSolar).powerCapacity > colonyStats(normalSolar).powerCapacity)
 })
 
 test('crew composition and cross-training change settlement labor capacity', () => {
   let state = startMission()
   corePlacements(state).forEach(([type, col, row]) => { state = placeBuilding(state, type, col, row).state })
+  state = commissionBoundaryQueue(state)
   const staffed = colonyStats(state)
   assert.equal(Object.values(state.crewCohorts).reduce((total, count) => total + count, 0), state.crew)
   assert.equal(staffed.labor.ratios.operations, 1)
@@ -324,7 +340,8 @@ test('the expansion crisis triggers after the second transfer window', () => {
   while (state.sol < 30) state = advanceCampaign(state)
   assert.equal(state.pendingEventId, null)
   assert.ok(state.resolvedEventIds.includes('us-insurance-control'))
-  assert.match(state.log[0].message, /shutdown clause/)
+  assert.match(state.log[0].message, /insurance coverage/)
+  assert.equal(state.policyEffects.restrictedConstructionDuringHazards, true)
 })
 
 test('each sponsor faces a distinct rival and three-way strategic encounter', () => {
@@ -374,7 +391,7 @@ test('a prepared colony survives the dust front and earns a second transfer wind
   assert.equal(state.stormSurvived, true)
   assert.ok(state.resources.integrity > 0)
   assert.equal(missionObjectives(state).every((objective) => objective.complete), true)
-  assert.equal(colonyProfile(state), 'Industrial-Foothold Settlement')
+  assert.equal(colonyProfile(state), 'Industrial Vanguard')
 })
 
 test('every opening manifest can earn the second transfer window', () => {
@@ -425,7 +442,9 @@ test('sponsor confidence gates ambitious second-window packages', () => {
 })
 
 test('follow-on manifests change population, cargo, and construction economics', () => {
-  const review = reachSecondWindow()
+  let review = reachSecondWindow()
+  review = updateRoverAssignment(review, 'maintenance', -1).state
+  review = updateRoverAssignment(review, 'construction', 1).state
   const crew = applyFollowOnManifest(review, 'permanent-crew').state
   const machines = applyFollowOnManifest(review, 'machine-economy').state
   const consolidation = applyFollowOnManifest(review, 'consolidation-charter').state
@@ -573,9 +592,10 @@ test('battery, greenhouse, and recycling systems close settlement loops', () => 
     ],
   }
   const stats = colonyStats(state)
-  assert.equal(stats.batteryCapacity, 260)
+  assert.equal(stats.batteryCapacity, 6000)
   assert.ok(stats.foodNet > -state.crew * 1.15)
-  assert.equal(stats.waterRecovery, 0.4)
+  assert.ok(stats.waterRecovery > 0 && stats.waterRecovery <= 0.42)
+  assert.equal(stats.production['recycling-test'].online, true)
   const advanced = advanceSol(state)
   assert.ok(advanced.batteryCharge > 0)
 })

@@ -1,5 +1,12 @@
+import { isCommissioned, isOperational } from './buildingStatus.js'
+import { CONSTRUCTION_WORK, constructionRefund, nextBuildingUid } from './construction.js'
+import { validateRestoredState } from './saveValidation.js'
+import { decisionEligibility, decisionOptions } from './decisions.js'
+export { decisionEligibility, decisionOptions } from './decisions.js'
+import { buildingEfficiency, isStormActive, isDebrisActive, colonyStats, operateSol, colonyAssessment, SOL_HOURS } from './operations.js'
+export { buildingEfficiency, isStormActive, isDebrisActive, colonyStats, colonyAssessment, SOL_HOURS } from './operations.js'
 import { BUILDINGS } from './buildings.js'
-import { advanceCrewStatus, applyCrewEffects, crewLead, ensureCrewMembers } from './crewMembers.js'
+import { applyCrewEffects, crewLead, ensureCrewMembers } from './crewMembers.js'
 import { CROSS_TRAINING_ROLES, DEFAULT_CREW_COHORTS, crewLabor, inferLegacyCohorts, mergeCohorts } from './crewLabor.js'
 import { followOnManifestById } from './followOnManifests.js'
 import { LEGACY_MANIFEST, manifestById } from './manifests.js'
@@ -15,146 +22,35 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
 const round = (value) => Math.round(value * 10) / 10
 const SPONSOR_DAMAGE_OFFSET = { 'american-compact': 0, 'china-directorate': 2, 'europe-cooperative': 4, 'russia-directorate': 6 }
 
-export function buildingEfficiency(integrity) {
-  return clamp((integrity ?? 0) / 100, 0, 1)
-}
-
-export function isStormActive(sol) {
-  return sol >= 18 && sol <= 21
-}
-
-export function isDebrisActive(sol) {
-  return sol >= 34 && sol <= 36
-}
-
-export function colonyStats(state) {
-  const storm = isStormActive(state.sol)
-  const debris = isDebrisActive(state.sol)
-  const network = buildUtilityNetwork(state.buildings)
-  const connected = new Set(network.connectedUids)
-  const labor = crewLabor(state, network.connectedUids)
-  let powerCapacity = 0
-  let powerDemand = 0
-  let waterOutput = 0
-  let waterUse = state.crew * 4.8
-  let oxygenOutput = 0
-  let oxygenUse = state.crew * 7.2
-  let partsOutput = 0
-  let foodOutput = 0
-  let maintenance = 0
-  let crewCapacity = 0
-  let waterCapacity = 4000
-  let oxygenCapacity = 3000
-  let waterRecovery = 0
-  let batteryCapacity = 0
-  let batteryChargeRate = 0
-  let batteryDischargeRate = 0
-  const iceRigYields = []
-  const siteProfile = siteForSponsor(state.sponsorId)
-  const stormSolarFactor = clamp(0.28 / siteProfile.dustSeverity, 0.18, 0.38)
-
-  state.buildings.forEach((placed) => {
-    const building = BUILDINGS[placed.type]
-    const operating = placed.integrity > 0 && connected.has(placed.uid)
-    if (!operating) return
-    const efficiency = buildingEfficiency(placed.integrity)
-    if (building.power) {
-      const ridgeMultiplier = placed.type === 'solar' ? (solarRidgeAt(state, placed.col, placed.row)?.multiplier ?? 1) : 1
-      const multiplier = placed.type === 'solar' && storm ? stormSolarFactor * ridgeMultiplier : ridgeMultiplier
-      powerCapacity += building.power * multiplier * efficiency
-    }
-    powerDemand += building.powerUse ?? 0
-    if (placed.type === 'ice') {
-      iceRigYields.push((iceDepositAt(state, placed.col, placed.row)?.yield ?? building.water) * efficiency)
-    } else {
-      waterOutput += (building.water ?? 0) * efficiency
-    }
-    waterUse += building.waterUse ?? 0
-    oxygenOutput += (building.oxygen ?? 0) * efficiency
-    foodOutput += (building.food ?? 0) * efficiency
-    oxygenUse += building.oxygenUse ?? 0
-    partsOutput += (building.parts ?? 0) * efficiency
-    maintenance += building.maintenance ?? 0
-    maintenance += (1 - efficiency) * 1.5
-    crewCapacity += building.crewCapacity ?? 0
-    waterCapacity += building.waterCapacity ?? 0
-    oxygenCapacity += building.oxygenCapacity ?? 0
-    waterRecovery = Math.max(waterRecovery, (building.waterRecovery ?? 0) * efficiency)
-    batteryCapacity += (building.batteryCapacity ?? 0) * efficiency
-    batteryChargeRate += (building.batteryChargeRate ?? 0) * efficiency
-    batteryDischargeRate += (building.batteryDischargeRate ?? 0) * efficiency
-  })
-
-  const rovers = roverOperations(state)
-  const activeIceRigs = iceRigYields.length
-  const supportedIceRigs = Math.min(activeIceRigs, rovers.assignments.water)
-  if (activeIceRigs) {
-    const rankedYields = [...iceRigYields].sort((a, b) => b - a)
-    waterOutput += rankedYields.reduce((total, fieldYield, index) => total + (index < supportedIceRigs ? fieldYield : fieldYield * 0.3), 0)
-  }
-  waterOutput *= labor.ratios.operations
-  oxygenOutput *= labor.ratios.operations
-  partsOutput *= labor.ratios.operations
-  foodOutput *= Math.min(labor.ratios.operations, labor.ratios.support)
-  waterUse *= 1 - waterRecovery
-  if (storm) maintenance += 2.5
-  if (debris) maintenance += 4
-  maintenance = Math.max(0, maintenance - rovers.maintenanceRelief)
-  maintenance += (1 - labor.ratios.engineering) * 5
-  const basePowerCapacity = powerCapacity
-  const powerDeficit = Math.max(0, powerDemand - basePowerCapacity)
-  const batteryDispatch = Math.min(powerDeficit, state.batteryCharge ?? 0, batteryDischargeRate)
-  powerCapacity += batteryDispatch
-  const powerRatio = powerDemand === 0 ? 1 : clamp(powerCapacity / powerDemand, 0, 1)
-
-  return {
-    storm,
-    debris,
-    powerCapacity: round(powerCapacity),
-    basePowerCapacity: round(basePowerCapacity),
-    powerDemand: round(powerDemand),
-    powerRatio,
-    waterNet: round((waterOutput * powerRatio) - waterUse),
-    oxygenNet: round((oxygenOutput * powerRatio) - oxygenUse),
-    foodNet: round((foodOutput * powerRatio) - (state.crew * 1.15)),
-    partsNet: round((partsOutput * powerRatio) - maintenance),
-    crewCapacity,
-    waterCapacity,
-    oxygenCapacity,
-    waterRecovery: round(waterRecovery),
-    batteryCapacity: round(batteryCapacity),
-    batteryChargeRate: round(batteryChargeRate),
-    batteryDischargeRate: round(batteryDischargeRate),
-    batteryDispatch: round(batteryDispatch),
-    network,
-    rovers: { ...rovers, activeIceRigs, supportedIceRigs },
-    labor,
-  }
-}
-
 export function missionObjectives(state) {
-  const network = buildUtilityNetwork(state.buildings)
-  const connected = new Set(network.connectedUids)
-  const has = (type) => state.buildings.some((building) => building.type === type && building.integrity > 0 && connected.has(building.uid))
+  const stats = colonyStats(state)
+  const online = (b) => stats.production[b.uid]?.online && b.integrity >= 50
+  const has = (type, output) => state.buildings.some((b) => b.type === type && online(b) && (!output || stats.production[b.uid][output] > 0))
   if (state.phase === 'expansion') {
-    const storageCount = state.buildings.filter((building) => building.type === 'storage' && building.integrity > 0 && connected.has(building.uid)).length
-    const stats = colonyStats(state)
     return [
       { id: 'housing', label: `House the ${state.crew}-person permanent crew`, complete: stats.crewCapacity >= state.crew },
-      { id: 'industry', label: 'Operate a machine workshop', complete: has('workshop') },
-      { id: 'food', label: 'Produce food in a sealed greenhouse', complete: has('greenhouse') },
-      { id: 'recycling', label: 'Reclaim settlement water', complete: has('recycling') },
-      { id: 'reserves', label: 'Protect a second reserve-tank site', complete: storageCount >= 2 },
+      { id: 'industry', label: 'Deliver replacement parts from a machine workshop', complete: has('workshop', 'parts') },
+      { id: 'food', label: 'Produce food in a supplied greenhouse', complete: has('greenhouse', 'food') },
+      { id: 'recycling', label: 'Reclaim settlement water with power', complete: has('recycling') && stats.waterRecovery > 0 },
+      { id: 'reserves', label: 'Protect a second reserve-tank site', complete: state.buildings.filter((b) => b.type === 'storage' && online(b)).length >= 2 },
       { id: 'parts', label: 'Hold 60 replacement parts', complete: state.resources.parts >= 60 },
       { id: 'debris', label: 'Survive the Sol 34 debris front', complete: state.debrisSurvived },
-      { id: 'labor', label: 'Staff essential engineering and surface operations', complete: stats.labor.ratios.engineering >= 0.75 && stats.labor.ratios.operations >= 0.75 },
+      { id: 'labor', label: 'Staff essential engineering, operations and medical shifts', complete: Object.values(stats.labor.ratios).every((ratio) => ratio >= 0.75) },
     ]
   }
+  // Forecast four dusty sols with the actual battery ledger, never object counts.
+  let shadow = { ...state, sol: 18 }, stormReady = true
+  for (let day = 0; day < 4; day += 1) {
+    const weather = colonyStats(shadow)
+    if (weather.powerRatio < 0.99) stormReady = false
+    shadow = operateSol(shadow, weather)
+  }
   return [
-    { id: 'habitat', label: 'Commission a pressure habitat', complete: has('habitat') },
-    { id: 'water', label: 'Begin local ice extraction', complete: has('ice') },
-    { id: 'oxygen', label: 'Produce oxygen locally', complete: has('oxygen') },
-    { id: 'power', label: 'Secure storm-resilient power', complete: has('nuclear') || (has('battery') && state.buildings.filter((item) => item.type === 'solar').length >= 2) || state.buildings.filter((item) => item.type === 'solar').length >= 4 },
+    { id: 'habitat', label: 'Commission usable pressure housing', complete: has('habitat') && stats.crewCapacity >= state.crew },
+    { id: 'survey', label: 'Assign Ground Survey and advance to confirm an ice lens', complete: (state.surveyedFeatureIds?.length ?? 0) > 0 },
+    { id: 'water', label: 'Deliver water from a confirmed ice rig', complete: has('ice', 'water') },
+    { id: 'oxygen', label: 'Produce oxygen with a supplied plant', complete: has('oxygen', 'oxygen') },
+    { id: 'power', label: 'Power the core through four dusty sols', complete: stormReady },
     { id: 'storm', label: 'Survive the Sol 18 dust front', complete: state.stormSurvived },
   ]
 }
@@ -165,15 +61,16 @@ export function buildingCost(state, type) {
   const discount = state.buildDiscounts?.[type] ?? {}
   const roverDiscount = roverOperations(state).constructionDiscount
   const logisticsDiscount = crewLead(state)?.trait === 'logistics' ? { parts: 3, cargo: 0.1 } : { parts: 0, cargo: 0 }
+  const cargoAfterDiscounts = Math.max(round(base.cargo * 0.2), round(base.cargo - (discount.cargo ?? 0) - roverDiscount.cargo - logisticsDiscount.cargo))
   return {
-    parts: Math.max(0, round(base.parts - (discount.parts ?? 0) - roverDiscount.parts - logisticsDiscount.parts)),
-    cargo: Math.max(0, round(base.cargo - (discount.cargo ?? 0) - roverDiscount.cargo - logisticsDiscount.cargo)),
+    parts: Math.max(round(base.parts * 0.2), round(base.parts - (discount.parts ?? 0) - roverDiscount.parts - logisticsDiscount.parts)),
+    cargo: round(cargoAfterDiscounts * (state.policyEffects?.constructionCargoMultiplier ?? 1)),
   }
 }
 
 export function buildingRepairCost(state, uid) {
   const building = state.buildings.find((item) => item.uid === uid)
-  if (!building || building.integrity >= 100) return 0
+  if (!building || !isCommissioned(building) || building.integrity >= 100) return 0
   const maintenanceRovers = roverOperations(state).assignments.maintenance
   const rate = Math.max(0.27, 0.45 - (maintenanceRovers * 0.06))
   return Math.max(1, Math.ceil((100 - building.integrity) * rate))
@@ -184,6 +81,7 @@ export function repairBuilding(state, uid) {
   if (state.transferWindowPending || state.pendingEventId || state.pendingRivalEncounterId || state.pendingOperationalIncidentId) return { state, error: 'Resolve the active command decision first.' }
   const building = state.buildings.find((item) => item.uid === uid)
   if (!building) return { state, error: 'Select a valid structure.' }
+  if (!isCommissioned(building)) return { state, error: 'This worksite is still under construction.' }
   if (building.integrity >= 100) return { state, error: 'That structure is already at full integrity.' }
   const cost = buildingRepairCost(state, uid)
   if (state.resources.parts < cost) return { state, error: `Repairs require ${cost} parts.` }
@@ -200,7 +98,8 @@ export function repairBuilding(state, uid) {
 }
 
 export function updateCrewLead(state, memberId) {
-  if (!ensureCrewMembers(state).some((member) => member.id === memberId)) return { state, error: 'Select an active mission officer.' }
+  if (state.assignmentCommitment?.sol === state.sol && state.assignmentCommitment.crewLeadId && memberId !== state.assignmentCommitment.crewLeadId) return { state, error: 'The logistics lead is committed to this sol’s construction. Advance one sol before changing command.' }
+  if (!ensureCrewMembers(state).some((member) => member.id === memberId && member.health > 0)) return { state, error: 'Select an active mission officer.' }
   return { state: { ...state, crewLeadId: memberId }, error: '' }
 }
 
@@ -209,6 +108,7 @@ export function updateRoverAssignment(state, routeId, delta) {
     return { state, error: 'Select a valid rover dispatch change.' }
   }
   const operations = roverOperations(state)
+  if (routeId === 'construction' && delta < 0 && state.assignmentCommitment?.sol === state.sol && operations.assignments.construction <= state.assignmentCommitment.roverAssignments.construction) return { state, error: 'These rovers are committed to this sol’s construction. Advance one sol before recall.' }
   const current = operations.assignments[routeId]
   if (delta < 0 && current === 0) return { state, error: 'No rover is assigned to that route.' }
   if (delta > 0 && operations.available === 0) return { state, error: 'Recall a rover before assigning another route.' }
@@ -229,8 +129,10 @@ export function updateCrossTraining(state, role) {
 export function applySponsorEventChoice(state, choiceId) {
   const event = sponsorEventById(state.pendingEventId)
   if (!event || event.sponsorId !== state.sponsorId) return { state, error: 'No sponsor decision is pending.' }
-  const choice = event.choices.find((item) => item.id === choiceId)
+  const choice = decisionOptions(state, event).find((item) => item.id === choiceId)
   if (!choice) return { state, error: 'Select a valid command option.' }
+  const eligibility = decisionEligibility(state, choice)
+  if (!eligibility.eligible) return { state, error: eligibility.reason }
   const stats = colonyStats(state)
   const resources = { ...state.resources }
   Object.entries(choice.effects).forEach(([key, value]) => {
@@ -242,13 +144,17 @@ export function applySponsorEventChoice(state, choiceId) {
   resources.parts = clamp(resources.parts, 0, 999)
   resources.cargo = clamp(resources.cargo, 0, 99)
   resources.confidence = clamp(resources.confidence, 0, 100)
+  resources.integrity = clamp(resources.integrity, 0, 100)
   return {
     error: '',
     state: {
       ...state,
+      crewMembers: applyCrewEffects(ensureCrewMembers(state), choice.crewEffects),
+      outcome: resources.integrity <= 0 ? 'failure' : state.outcome,
       pendingEventId: null,
       resolvedEventIds: [...(state.resolvedEventIds ?? []), event.id],
       resources,
+      policyEffects: { ...(state.policyEffects ?? {}), ...(choice.policy?.effects ?? {}) },
       decisionLog: [...(state.decisionLog ?? []), { sol: state.sol, category: 'Sponsor directive', title: event.title, choice: choice.title }],
       speed: 0,
       log: [{ sol: state.sol, tone: 'warning', message: choice.consequence }, ...state.log].slice(0, 12),
@@ -260,8 +166,10 @@ export function applyRivalEncounterChoice(state, choiceId) {
   const encounter = rivalEncounterById(state.pendingRivalEncounterId)
   const rival = rivalSettlementFor(state.sponsorId)
   if (!encounter || !rival || rival.encounter.id !== encounter.id) return { state, error: 'No rival-settlement decision is pending.' }
-  const choice = encounter.choices.find((item) => item.id === choiceId)
+  const choice = decisionOptions(state, encounter).find((item) => item.id === choiceId)
   if (!choice) return { state, error: 'Select a valid Mars policy.' }
+  const eligibility = decisionEligibility(state, choice)
+  if (!eligibility.eligible) return { state, error: eligibility.reason }
   const stats = colonyStats(state)
   const resources = { ...state.resources }
   Object.entries(choice.effects).forEach(([key, value]) => {
@@ -273,14 +181,17 @@ export function applyRivalEncounterChoice(state, choiceId) {
   resources.parts = clamp(resources.parts, 0, 999)
   resources.cargo = clamp(resources.cargo, 0, 99)
   resources.confidence = clamp(resources.confidence, 0, 100)
+  resources.integrity = clamp(resources.integrity, 0, 100)
   return {
     error: '',
     state: {
       ...state,
+      crewMembers: applyCrewEffects(ensureCrewMembers(state), choice.crewEffects),
+      outcome: resources.integrity <= 0 ? 'failure' : state.outcome,
       pendingRivalEncounterId: null,
       resolvedRivalEncounterIds: [...(state.resolvedRivalEncounterIds ?? []), encounter.id],
-      rivalRelations: clamp((state.rivalRelations ?? rival.startingRelations) + choice.relations, 0, 100),
-      strategicPosition: clamp((state.strategicPosition ?? rival.startingPosition) + choice.position, 0, 100),
+      rivalRelations: clamp((state.rivalRelations ?? rival.startingRelations) + (choice.relations ?? 0), 0, 100),
+      strategicPosition: clamp((state.strategicPosition ?? rival.startingPosition) + (choice.position ?? 0), 0, 100),
       resources,
       decisionLog: [...(state.decisionLog ?? []), { sol: state.sol, category: 'Mars relations', title: encounter.title, choice: choice.title }],
       speed: 0,
@@ -291,8 +202,10 @@ export function applyRivalEncounterChoice(state, choiceId) {
 
 export function applyOperationalIncidentChoice(state, choiceId) {
   const incident = operationalIncidentById(state.pendingOperationalIncidentId)
-  const choice = incident?.choices.find((item) => item.id === choiceId)
+  const choice = decisionOptions(state, incident).find((item) => item.id === choiceId)
   if (!incident || !choice) return { state, error: 'Select a valid settlement response.' }
+  const eligibility = decisionEligibility(state, choice)
+  if (!eligibility.eligible) return { state, error: eligibility.reason }
   const stats = colonyStats(state)
   const resources = { ...state.resources }
   Object.entries(choice.effects ?? {}).forEach(([key, value]) => { resources[key] = round((resources[key] ?? 0) + value) })
@@ -305,18 +218,19 @@ export function applyOperationalIncidentChoice(state, choiceId) {
   resources.integrity = clamp(resources.integrity, 0, 100)
   let buildings = state.buildings
   if (choice.damageType && choice.damage) {
-    const target = buildings.find((building) => building.type === choice.damageType && building.integrity > 0)
+    const target = buildings.find((building) => building.type === choice.damageType && isOperational(building))
     if (target) buildings = buildings.map((building) => building.uid === target.uid ? { ...building, integrity: clamp(building.integrity - choice.damage, 0, 100) } : building)
   }
   return {
     error: '',
     state: {
       ...state,
+      outcome: resources.integrity <= 0 ? 'failure' : state.outcome,
       pendingOperationalIncidentId: null,
       resolvedOperationalIncidentIds: [...(state.resolvedOperationalIncidentIds ?? []), incident.id],
       resources,
       sciencePoints: (state.sciencePoints ?? 0) + (choice.science ?? 0),
-      batteryCharge: Math.max(0, (state.batteryCharge ?? 0) + (choice.batteryCharge ?? 0)),
+      batteryCharge: clamp((state.batteryCharge ?? 0) + (choice.batteryCharge ?? 0), 0, colonyStats({ ...state, buildings }).batteryCapacity),
       crewMembers: applyCrewEffects(ensureCrewMembers(state), choice.crewEffects),
       buildings,
       speed: 0,
@@ -398,7 +312,7 @@ export function applyFollowOnManifest(state, manifestId) {
   resources.confidence = clamp(resources.confidence, 0, 100)
 
   const nextCrewCount = state.crew + manifest.crew
-  const expandedCrew = ensureCrewMembers({ ...state, crew: nextCrewCount })
+  const expandedCrew = ensureCrewMembers({ ...state, crew: nextCrewCount, crewCohorts: mergeCohorts(state.crewCohorts, manifest.cohorts) })
   return {
     error: '',
     state: {
@@ -421,7 +335,7 @@ export function applyFollowOnManifest(state, manifestId) {
 }
 
 export function colonyProfile(state) {
-  const types = state.buildings.map((building) => building.type)
+  const types = state.buildings.filter(isOperational).map((building) => building.type)
   const solarCount = types.filter((type) => type === 'solar').length
   const storageCount = types.filter((type) => type === 'storage').length
   const followOnProfile = followOnManifestById(state.secondManifestId)?.profile
@@ -441,7 +355,10 @@ export function canPlaceBuilding(state, type, col, row) {
   if (state.pendingOperationalIncidentId) return { ok: false, reason: 'Resolve the active settlement incident first.' }
   if (!building?.buildable) return { ok: false, reason: 'This structure cannot be constructed.' }
   if (state.outcome) return { ok: false, reason: 'The mission has concluded.' }
-  if (col < 0 || col > 8 || row < 0 || row > 5) return { ok: false, reason: 'Select a surveyed construction cell.' }
+  if (state.policyEffects?.restrictedConstructionDuringHazards && (isStormActive(state.sol) || isDebrisActive(state.sol))) {
+    return { ok: false, reason: 'The insurance shutdown clause suspends new construction during active dust or debris alerts. Existing operations and repairs may continue; build after the alert passes.' }
+  }
+  if (!Number.isInteger(col) || !Number.isInteger(row) || col < 0 || col > 8 || row < 0 || row > 5) return { ok: false, reason: 'Select a surveyed construction cell.' }
   if (state.buildings.some((placed) => placed.col === col && placed.row === row)) return { ok: false, reason: 'That construction cell is occupied.' }
   if (!terrainSupportsBuilding(state, type, col, row)) {
     return { ok: false, reason: type === 'ice' ? 'Ice extraction rigs require a rover-confirmed ice lens.' : 'That cell is reserved as an orbital survey prospect.' }
@@ -461,7 +378,7 @@ export function placeBuilding(state, type, col, row) {
   if (!availability.ok) return { state, error: availability.reason }
   const definition = BUILDINGS[type]
   const cost = buildingCost(state, type)
-  const uid = `${type}-${state.sol}-${state.buildings.length + 1}`
+  const uid = nextBuildingUid(state, type)
   return {
     error: '',
     state: {
@@ -471,39 +388,38 @@ export function placeBuilding(state, type, col, row) {
         parts: round(state.resources.parts - cost.parts),
         cargo: round(state.resources.cargo - cost.cargo),
       },
-      buildings: [...state.buildings, { uid, type, col, row, integrity: 100 }],
+      buildings: [...state.buildings, { uid, type, col, row, integrity: 100, construction: { requiredWork: CONSTRUCTION_WORK[type], completedWork: 0, paid: { ...cost }, startedSol: state.sol } }],
       selectedUid: uid,
+      assignmentCommitment: { sol: state.sol, roverAssignments: { ...roverOperations(state).assignments }, crewLeadId: crewLead(state)?.trait === 'logistics' ? crewLead(state).id : state.assignmentCommitment?.sol === state.sol ? state.assignmentCommitment.crewLeadId : null },
       buildMode: null,
-      log: [{ sol: state.sol, tone: 'success', message: `${definition.name} linked to the utility grid at Grid ${col + 1}-${row + 1}.` }, ...state.log].slice(0, 12),
+      log: [{ sol: state.sol, tone: 'success', message: `${definition.name} worksite authorized at Grid ${col + 1}-${row + 1}. Commissioning requires ${CONSTRUCTION_WORK[type]} work units; supplies paid once.` }, ...state.log].slice(0, 12),
     },
   }
+}
+
+export function cancelConstruction(state, uid) {
+  if (state.outcome || state.transferWindowPending || state.pendingEventId || state.pendingRivalEncounterId || state.pendingOperationalIncidentId) return { state, error: 'Resolve the active review or command decision first.' }
+  const building = state.buildings.find((b) => b.uid === uid)
+  const refund = constructionRefund(building)
+  if (!refund) return { state, error: 'Only an unfinished worksite can be cancelled.' }
+  const buildings = state.buildings.filter((b) => b.uid !== uid)
+  const keepCommitment = buildings.some((b) => b.construction?.startedSol === state.sol)
+  return { error: '', state: { ...state, buildings, selectedUid: state.selectedUid === uid ? buildings.find((b) => b.type === 'cargo')?.uid ?? null : state.selectedUid,
+    assignmentCommitment: !keepCommitment && state.assignmentCommitment?.sol === state.sol ? null : state.assignmentCommitment,
+    resources: { ...state.resources, parts: round(Math.min(999, state.resources.parts + refund.parts)), cargo: round(Math.min(99, state.resources.cargo + refund.cargo)) },
+    log: [{ sol: state.sol, tone: 'warning', message: `${BUILDINGS[building.type].name} worksite cancelled. Recovered ${refund.parts} parts and ${refund.cargo} t; already performed work is not refunded.` }, ...state.log].slice(0, 12), speed: 0,
+  } }
 }
 
 export function advanceSol(state) {
   if (state.outcome || !state.manifestId || state.transferWindowPending || state.pendingEventId || state.pendingRivalEncounterId || state.pendingOperationalIncidentId) return state
   const stats = colonyStats(state)
   const nextSol = state.sol + 1
-  const next = {
-    ...state,
-    sol: nextSol,
-    resources: {
-      ...state.resources,
-      water: clamp(round(state.resources.water + stats.waterNet), 0, stats.waterCapacity),
-      oxygen: clamp(round(state.resources.oxygen + stats.oxygenNet), 0, stats.oxygenCapacity),
-      food: clamp(round(state.resources.food + stats.foodNet), 0, 1000),
-      parts: clamp(round(state.resources.parts + stats.partsNet), 0, 999),
-      confidence: state.resources.confidence,
-      integrity: state.resources.integrity,
-    },
-    log: [...state.log],
-  }
+  const operated = operateSol(state, stats)
+  const next = { ...operated, log: [...state.log] }
 
-  const storedPower = state.batteryCharge ?? 0
-  if (stats.basePowerCapacity >= stats.powerDemand) {
-    const surplus = stats.basePowerCapacity - stats.powerDemand
-    next.batteryCharge = clamp(round(storedPower + Math.min(surplus, stats.batteryChargeRate)), 0, stats.batteryCapacity)
-  } else {
-    next.batteryCharge = clamp(round(storedPower - stats.batteryDispatch), 0, stats.batteryCapacity)
+  for (const b of next.buildings) if (isCommissioned(b) && state.buildings.find((old) => old.uid === b.uid)?.construction) {
+    next.log = [{ sol: nextSol, tone: 'success', message: `${BUILDINGS[b.type].name} commissioning complete. It is available from this sol’s operations.` }, ...next.log].slice(0, 12)
   }
 
   const surveyRovers = roverOperations(state).surveyEffort
@@ -521,49 +437,43 @@ export function advanceSol(state) {
   }
 
   if (stats.powerRatio < 1) {
-    const shortage = Math.max(1, (stats.powerDemand - stats.powerCapacity) * 0.22)
-    next.resources.integrity = clamp(round(next.resources.integrity - shortage), 0, 100)
     next.resources.confidence = clamp(round(next.resources.confidence - 1.5), 0, 100)
   }
 
-  if (!state.buildings.some((building) => building.type === 'habitat') && nextSol > 5) {
+  if (!state.buildings.some((building) => building.type === 'habitat' && isOperational(building)) && nextSol > 5) {
     next.resources.confidence = clamp(round(next.resources.confidence - 1), 0, 100)
   }
 
   const depleted = ['water', 'oxygen', 'food'].some((key) => next.resources[key] <= 0)
   if (depleted) {
-    next.resources.integrity = clamp(round(next.resources.integrity - 8), 0, 100)
     next.resources.confidence = clamp(round(next.resources.confidence - 3), 0, 100)
   }
 
-  next.crewMembers = advanceCrewStatus(next, stats, depleted)
   if (crewLead(next)?.trait === 'command' && next.resources.confidence < state.resources.confidence) {
     next.resources.confidence = clamp(round(next.resources.confidence + 0.5), 0, 100)
   }
 
   if (state.phase === 'expansion' && next.resources.parts <= 0) {
-    next.resources.integrity = clamp(round(next.resources.integrity - 3), 0, 100)
     next.resources.confidence = clamp(round(next.resources.confidence - 1), 0, 100)
   }
 
   if (state.phase === 'expansion' && stats.crewCapacity < state.crew) {
-    next.resources.integrity = clamp(round(next.resources.integrity - 1.5), 0, 100)
     next.resources.confidence = clamp(round(next.resources.confidence - 1), 0, 100)
   }
 
   if (stats.labor.ratios.support < 1) {
     const supportShortage = 1 - stats.labor.ratios.support
-    next.resources.integrity = clamp(round(next.resources.integrity - supportShortage), 0, 100)
     next.resources.confidence = clamp(round(next.resources.confidence - (supportShortage * 1.5)), 0, 100)
   }
 
   if (nextSol === 18) {
+    next.speed = 0
     next.log = [{ sol: nextSol, tone: 'danger', message: `The dust front has reached ${state.settlementName}. Solar output has collapsed.` }, ...next.log].slice(0, 12)
     const maintenanceRovers = roverOperations(state).assignments.maintenance
     const abrasion = Math.max(4, Math.round((12 * siteForSponsor(state.sponsorId).dustSeverity) - (maintenanceRovers * 4)))
-    const solarCount = next.buildings.filter((building) => building.type === 'solar' && building.integrity > 0).length
+    const solarCount = next.buildings.filter((building) => building.type === 'solar' && isOperational(building)).length
     if (solarCount) {
-      next.buildings = next.buildings.map((building) => building.type === 'solar' ? { ...building, integrity: clamp(round(building.integrity - abrasion), 0, 100) } : building)
+      next.buildings = next.buildings.map((building) => building.type === 'solar' && isCommissioned(building) ? { ...building, integrity: clamp(round(building.integrity - abrasion), 0, 100) } : building)
       next.log = [{ sol: nextSol, tone: 'warning', message: `Dust abrasion reduced integrity across ${solarCount} solar array${solarCount === 1 ? '' : 's'} by ${abrasion} points.` }, ...next.log].slice(0, 12)
     }
   }
@@ -573,8 +483,9 @@ export function advanceSol(state) {
     next.log = [{ sol: nextSol, tone: 'success', message: 'The dust front has passed. The colony remained pressurized and powered.' }, ...next.log].slice(0, 12)
   }
   if (nextSol === 34 && state.phase === 'expansion') {
+    next.speed = 0
     next.log = [{ sol: nextSol, tone: 'danger', message: `A micrometeoroid front is crossing ${state.siteName.split(' · ')[0]}. Inspection cycles and replacement-parts demand have surged.` }, ...next.log].slice(0, 12)
-    const candidates = next.buildings.filter((building) => BUILDINGS[building.type]?.buildable && building.integrity > 0)
+    const candidates = next.buildings.filter((building) => BUILDINGS[building.type]?.buildable && isOperational(building))
     if (candidates.length) {
       const target = candidates[(SPONSOR_DAMAGE_OFFSET[state.sponsorId] ?? 0) % candidates.length]
       const maintenanceRovers = roverOperations(state).assignments.maintenance
@@ -589,6 +500,9 @@ export function advanceSol(state) {
     next.resources.confidence = clamp(round(next.resources.confidence + 3), 0, 100)
     next.log = [{ sol: nextSol, tone: 'success', message: 'The debris front has passed. Local maintenance teams kept every pressure system operational.' }, ...next.log].slice(0, 12)
   }
+
+  // Capacity lost to damage cannot be recovered by repairing before the next tick.
+  next.batteryCharge = Math.min(next.batteryCharge, colonyStats(next).batteryCapacity)
 
   const sponsorEvent = sponsorEventAt(state.sponsorId, nextSol, state.phase, state.resolvedEventIds)
   if (sponsorEvent) {
@@ -629,7 +543,7 @@ export function advanceSol(state) {
     next.speed = 0
   } else if (nextSol >= 42 && state.phase === 'expansion') {
     const complete = missionObjectives(next).every((objective) => objective.complete)
-    next.outcome = complete && next.resources.integrity >= 70 ? 'permanent-city' : 'fragile-city'
+    next.outcome = complete && colonyAssessment(next).viable ? 'permanent-city' : 'fragile-city'
     next.speed = 0
   }
 
@@ -644,6 +558,7 @@ export function restoreState(value) {
   try {
     const parsed = JSON.parse(value)
     if (!Array.isArray(parsed?.buildings)) return null
+    if (parsed.version === 9 && !validateRestoredState(parsed).valid) return null
     const legacySponsor = sponsorById('american-compact')
     const legacySponsorFields = {
       sponsorId: legacySponsor.id,
@@ -673,14 +588,17 @@ export function restoreState(value) {
         decisionLog: [],
         ...candidate,
         version: 9,
+        mechanicsVersion: 2,
+        batteryCharge: candidate.mechanicsVersion === 2 ? candidate.batteryCharge ?? 0 : (candidate.batteryCharge ?? 0) * (6000 / 260),
         roverAssignments: { ...DEFAULT_ROVER_ASSIGNMENTS, ...(candidate.roverAssignments ?? {}) },
       }
       const crewMembers = ensureCrewMembers(base)
-      return {
+      const checked = validateRestoredState({
         ...base,
         crewMembers,
         crewLeadId: crewMembers.some((member) => member.id === base.crewLeadId) ? base.crewLeadId : crewMembers[0]?.id ?? null,
-      }
+      })
+      return checked.valid ? { ...checked.state, batteryCharge: Math.min(checked.state.batteryCharge, colonyStats(checked.state).batteryCapacity) } : null
     }
     if (parsed.version === 9) return upgradeToV9(parsed)
     if (parsed.version === 8) return upgradeToV9(parsed)

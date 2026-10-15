@@ -8,9 +8,9 @@ export default function SponsorCouncil({ onSelect }) {
     <div className="manifest-backdrop sponsor-backdrop">
       <section className="sponsor-council" role="dialog" aria-modal="true" aria-labelledby="sponsor-title">
         <header>
-          <p>Earth Launch Competition · 2033–2038</p>
+          <p>Fictional near-future scenario · 2033–2038</p>
           <h1 id="sponsor-title">Choose the Founding Mission</h1>
-          <span>Four institutions reach Mars with different political systems, cargo assumptions, and operational constraints.</span>
+          <span>Four imagined missions reach Mars with different political systems, cargo assumptions and operating constraints. The dates, institutions and competition are scenario fiction, not announced mission plans.</span>
         </header>
         <div className="sponsor-grid">
           {SPONSOR_ORDER.map((id) => {

@@ -1,5 +1,7 @@
+import { isCommissioned } from './buildingStatus.js'
+import { cellWithinUtilityReach } from './utilityNetwork.js'
 import { BUILDINGS } from './buildings.js'
-import { crewLead, crewReadinessByCohort } from './crewMembers.js'
+import { crewLead, crewReadinessByCohort, memberReadiness } from './crewMembers.js'
 
 export const DEFAULT_CREW_COHORTS = { engineering: 2, operations: 3, support: 1, residents: 0 }
 export const CROSS_TRAINING_ROLES = ['engineering', 'operations', 'support']
@@ -30,12 +32,15 @@ export function crewLabor(state, connectedUids) {
   const demand = { engineering: 0, operations: 0, support: Math.ceil(state.crew / 8) }
 
   state.buildings.forEach((placed) => {
-    if (placed.integrity <= 0 || !connected.has(placed.uid)) return
+    if (!isCommissioned(placed) || placed.integrity <= 0 || !connected.has(placed.uid)) return
     const labor = BUILDINGS[placed.type]?.labor ?? {}
     demand.engineering += labor.engineering ?? 0
     demand.operations += labor.operations ?? 0
+    demand.support += labor.support ?? 0
   })
 
+  const activeSite = state.buildings.some((b) => b.construction && b.integrity > 0 && cellWithinUtilityReach(state.buildings, { connectedUids }, b.col, b.row))
+  if (activeSite) demand.engineering += 0.5
   const readiness = crewReadinessByCohort(state)
   const available = {
     engineering: cohorts.engineering * readiness.engineering,
@@ -43,11 +48,13 @@ export function crewLabor(state, connectedUids) {
     support: cohorts.support * readiness.support,
   }
   const focus = CROSS_TRAINING_ROLES.includes(state.crossTraining) ? state.crossTraining : 'engineering'
-  available[focus] += 0.5
+  const totalCrew = Math.max(1, cohortTotal(cohorts))
+  const readyShare = Object.entries(cohorts).reduce((sum, [role, count]) => sum + count * readiness[role], 0) / totalCrew
+  available[focus] += 0.5 * readyShare
   const lead = crewLead(state)
-  if (lead?.trait === 'systems') available.engineering += 0.35
-  if (lead?.trait === 'surface') available.operations += 0.35
-  if (lead?.trait === 'medical') available.support += 0.35
+  if (lead?.trait === 'systems') available.engineering += 0.35 * memberReadiness(lead)
+  if (lead?.trait === 'surface') available.operations += 0.35 * memberReadiness(lead)
+  if (lead?.trait === 'medical') available.support += 0.35 * memberReadiness(lead)
   const ratioFor = (role) => demand[role] === 0 ? 1 : Math.min(1, available[role] / demand[role])
   const ratios = {
     engineering: ratioFor('engineering'),

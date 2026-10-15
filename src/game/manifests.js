@@ -134,7 +134,7 @@ export const MANIFESTS = {
     thesis: 'Disperse high-efficiency arrays and grid hardware across the site instead of concentrating the first payload on a reactor.',
     allocations: [['Solar arrays', '-15 parts'], ['Parts', '+130'], ['Cargo', '+4.0 t']],
     strength: 'Makes rapid, distributed electrical expansion unusually affordable.',
-    risk: 'Four arrays are required to provide acceptable dust-front resilience.',
+    risk: 'Solar-only plans need enough generation and charged storage to cover all four dusty sols. Check the operating forecast.',
     effects: { water: 200, oxygen: 200, food: 80, parts: 130, cargo: 4, confidence: 2 },
     discounts: { solar: { parts: 15, cargo: 0.4 } },
     consequence: 'The council selects a distributed solar microgrid. Kepler can spread power capacity quickly, but the crew must build enough redundancy before the dust front arrives.',

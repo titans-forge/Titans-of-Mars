@@ -11,7 +11,7 @@ export default function ManifestCouncil({ state, onSelect }) {
         <header>
           <p>{state.transferAuthority} · {state.earthYear}</p>
           <h1 id="manifest-title">Choose the First Transfer Manifest</h1>
-          <span>One launch window. Three competing definitions of what the first city needs most.</span>
+          <span>Allocate the founding mission’s landed payload. These three doctrines simplify real launch and cargo planning; choosing one does not send an instant delivery from Earth.</span>
         </header>
         <div className="manifest-grid">
           {manifests.map((manifest) => {
@@ -34,7 +34,7 @@ export default function ManifestCouncil({ state, onSelect }) {
             )
           })}
         </div>
-        <footer>Payload allocation is permanent for this campaign. Surface construction begins after authorization.</footer>
+        <footer>Scenario allocation is permanent for this campaign. The selected stores are already part of the landed mission; surface construction begins after authorization.</footer>
       </section>
     </div>
   )

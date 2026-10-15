@@ -53,32 +53,47 @@ export const TRAIT_LABELS = {
   command: 'Command: reduces confidence loss when the settlement is strained.',
   systems: 'Systems: adds engineering coverage while serving as mission lead.',
   surface: 'Surface: adds operations coverage while serving as mission lead.',
-  medical: 'Medical: improves crew recovery and support coverage.',
+  medical: 'Medical: improves fatigue recovery, care for stable injured crew and support coverage.',
   science: 'Science: accelerates an active ground survey.',
   logistics: 'Logistics: slightly reduces construction mass and parts costs.',
 }
 
-export function createCrewMembers(sponsorId, count = 6) {
+// Names describe specialties; the assigned shift must match the actual labor budget.
+function assignBillets(members, cohorts) {
+  if (!cohorts) return members
+  const remaining = { ...cohorts }
+  const assigned = members.map((member) => {
+    if ((remaining[member.cohort] ?? 0) <= 0) return { ...member, cohort: null }
+    remaining[member.cohort] -= 1
+    return member
+  })
+  return assigned.map((member) => {
+    if (member.cohort) return member
+    const cohort = Object.keys(remaining).find((key) => remaining[key] > 0) ?? 'residents'
+    remaining[cohort] -= 1
+    return { ...member, cohort }
+  })
+}
+
+export function createCrewMembers(sponsorId, count = 6, cohorts = null) {
   const source = ROSTERS[sponsorId] ?? ROSTERS['american-compact']
-  return source.slice(0, count).map(([id, name, role, cohort, trait]) => ({ id, name, role, cohort, trait, health: 100, fatigue: 8 }))
+  return assignBillets(source.slice(0, count).map(([id, name, role, cohort, trait]) => ({ id, name, role, cohort, trait, health: 100, fatigue: 8 })), cohorts)
 }
 
 export function ensureCrewMembers(state) {
-  const existing = state.crewMembers ?? []
-  if (existing.length >= state.crew) return existing.slice(0, state.crew)
   const roster = createCrewMembers(state.sponsorId, state.crew)
-  const byId = new Map(existing.map((member) => [member.id, member]))
-  return roster.map((member) => ({ ...member, ...(byId.get(member.id) ?? {}) }))
+  const byId = new Map((state.crewMembers ?? []).map((member) => [member.id, member]))
+  return assignBillets(roster.map((member) => ({ ...member, ...(byId.get(member.id) ?? {}) })), state.crewCohorts)
 }
 
 export function crewLead(state) {
   const members = ensureCrewMembers(state)
-  return members.find((member) => member.id === state.crewLeadId) ?? members[0] ?? null
+  return members.find((member) => member.id === state.crewLeadId && member.health > 0) ?? members.find((member) => member.health > 0) ?? null
 }
 
 export function memberReadiness(member) {
   const fatiguePenalty = Math.max(0, (member?.fatigue ?? 0) - 35) / 100
-  return Math.max(0.25, Math.min(1, ((member?.health ?? 100) / 100) * (1 - fatiguePenalty)))
+  return Math.max(0, Math.min(1, ((member?.health ?? 100) / 100) * (1 - fatiguePenalty)))
 }
 
 export function crewReadinessByCohort(state) {
@@ -108,7 +123,8 @@ export function advanceCrewStatus(state, stats, depleted) {
     const duty = member.cohort === 'residents' ? 0.4 : 1.2
     const fatigue = Math.max(0, Math.min(100, member.fatigue + pressure + duty - recovery))
     const healthLoss = depleted ? 3 : fatigue >= 78 ? 1.5 : fatigue >= 62 ? 0.5 : 0
-    return { ...member, health: Math.max(0, Math.min(100, member.health - healthLoss)), fatigue, active: index < state.crew }
+    const healing = !depleted && stats.powerRatio >= 0.99 && support >= 1 && fatigue < 35 && member.health > 0 ? (lead?.trait === 'medical' ? 0.8 : 0.4) : 0
+    return { ...member, health: Math.max(0, Math.min(100, member.health - healthLoss + healing)), fatigue, active: index < state.crew }
   })
 }
 

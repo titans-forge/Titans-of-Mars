@@ -1,3 +1,4 @@
+import { isOperational } from './buildingStatus.js'
 const incident = (id, phase, title, system, brief, stakes, condition, choices) => ({ id, phase, title, system, brief, stakes, condition, choices })
 
 export const OPERATIONAL_INCIDENTS = [
@@ -20,7 +21,7 @@ export const OPERATIONAL_INCIDENTS = [
   incident('solar-particle-watch', 'survival', 'Solar Particle Watch', 'Crew safety',
     'Orbital monitors report an energetic particle event. The crew can shelter now or use the warning interval for one final exterior recovery run.',
     'Sheltering protects the crew and loses tempo. A last sortie may recover hardware but exposes the surface team.',
-    (state) => state.buildings.some((building) => building.type === 'habitat'),
+    (state) => state.buildings.some((building) => building.type === 'habitat' && isOperational(building)),
     [
       { id: 'shelter', title: 'Move the crew into shelter', description: 'Suspend exterior work and protect the mission team.', effects: { confidence: -1 }, crewEffects: { all: { fatigue: -7 } }, consequence: 'The settlement enters radiation shelter before the particle front arrives. Exterior work pauses and the crew recovers.' },
       { id: 'sortie', title: 'Authorize one final sortie', description: 'Recover exposed cargo before sealing the habitat.', effects: { parts: 22, confidence: 2 }, crewEffects: { operations: { health: -4, fatigue: 8 } }, consequence: 'The surface team recovers valuable hardware and reaches shelter before peak flux, carrying measurable exposure and fatigue.' },
@@ -36,7 +37,7 @@ export const OPERATIONAL_INCIDENTS = [
   incident('greenhouse-blight', 'expansion', 'Blight in the First Greenhouse', 'Food system',
     'A fungal bloom has appeared in one sealed crop bay. It can be isolated for study or suppressed with imported nutrients and sterilants.',
     'Isolation protects the long-term crop model at an immediate food cost. Suppression preserves output while consuming scarce cargo.',
-    (state) => state.buildings.some((building) => building.type === 'greenhouse' && building.integrity > 0),
+    (state) => state.buildings.some((building) => building.type === 'greenhouse' && isOperational(building)),
     [
       { id: 'isolate', title: 'Isolate and study the bay', description: 'Sacrifice the crop and learn how the closed environment failed.', effects: { food: -35 }, science: 8, crewEffects: { support: { fatigue: 5 } }, consequence: 'The bay is sealed and sampled. The crop is lost, but the settlement gains a defensible disease-control protocol.' },
       { id: 'suppress', title: 'Suppress it with imported stores', description: 'Preserve near-term food output with Earth-supplied nutrients and sterilants.', effects: { food: 55, cargo: -0.5 }, consequence: 'The crop survives after an aggressive treatment, leaving the greenhouse productive and more dependent on imported stores.' },
@@ -44,15 +45,15 @@ export const OPERATIONAL_INCIDENTS = [
   incident('battery-thermal-run', 'expansion', 'Battery Thermal Excursion', 'Power storage',
     'One storage rack is heating beyond its modeled envelope during a high-load discharge cycle.',
     'Taking the bank offline protects the grid at a parts and reserve-power cost. Bypassing protection preserves output while risking permanent damage.',
-    (state) => state.buildings.some((building) => building.type === 'battery' && building.integrity > 0),
+    (state) => state.buildings.some((building) => building.type === 'battery' && isOperational(building)),
     [
-      { id: 'offline', title: 'Take the bank offline', description: 'Discharge the rack, replace the suspect contactor, and accept the lost reserve.', effects: { parts: -10 }, batteryCharge: -90, crewEffects: { engineering: { fatigue: 5 } }, consequence: 'Engineers isolate the rack and replace the contactor. The grid loses stored energy but avoids a cascading fault.' },
-      { id: 'bypass', title: 'Bypass the thermal limit', description: 'Preserve the operating schedule and accept damage to the battery bank.', effects: { confidence: 2 }, damageType: 'battery', damage: 18, consequence: 'The battery holds the load through the peak. The settlement meets its schedule and shortens the bank\'s service life.' },
+      { id: 'offline', title: 'Take the bank offline', description: 'Discharge the rack, replace the suspect contactor, and accept losing 2 MWh of stored energy.', effects: { parts: -10 }, batteryCharge: -2000, crewEffects: { engineering: { fatigue: 5 } }, consequence: 'Engineers isolate the rack and replace the contactor. The grid loses stored energy but avoids a cascading fault.' },
+      { id: 'bypass', title: 'Bypass the thermal limit', description: 'Preserve the schedule, damage the bank and expose engineers to a hot-rack emergency. Repairing hardware cannot undo crew injury or lost stored energy.', effects: { confidence: 2 }, damageType: 'battery', damage: 18, crewEffects: { engineering: { health: -3, fatigue: 10 } }, consequence: 'The bank holds the load but loses usable energy capacity. Engineers suffer heat injury and fatigue that need recovery time even after hardware repairs.' },
     ]),
   incident('recycler-biofilm', 'expansion', 'Biofilm in the Water Loop', 'Water recycling',
     'Sensors detect a fast-growing biofilm across the reclamation plant membrane train.',
     'Steam sterilization consumes water and parts. A chemical purge preserves more equipment while spending imported reagents.',
-    (state) => state.buildings.some((building) => building.type === 'recycling' && building.integrity > 0),
+    (state) => state.buildings.some((building) => building.type === 'recycling' && isOperational(building)),
     [
       { id: 'sterilize', title: 'Steam-sterilize the loop', description: 'Use water and replacement membranes to reset the system completely.', effects: { water: -110, parts: -8 }, science: 4, consequence: 'The reclamation loop is sterilized and rebuilt around a better sampling schedule.' },
       { id: 'purge', title: 'Use the imported chemical reserve', description: 'Preserve throughput by consuming a portion of landed reagent cargo.', effects: { cargo: -0.4, confidence: 1 }, consequence: 'The chemical purge clears the membrane train without stopping the city water loop.' },

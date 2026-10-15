@@ -49,3 +49,13 @@ export function soundtrackTrackIdForState(state, stats) {
   if (state?.phase === 'expansion') return 'holst-venus'
   return 'bach-aria'
 }
+
+// Music preferences are optional. Blocked/quota-limited storage must not stop play.
+export function loadMusicVolume(storage) {
+  try { return parseStoredVolume(storage().getItem('titans-of-mars-music-volume')) }
+  catch { return parseStoredVolume(null) }
+}
+export function saveMusicVolume(storage, volume) {
+  try { storage().setItem('titans-of-mars-music-volume', String(volume)); return true }
+  catch { return false }
+}

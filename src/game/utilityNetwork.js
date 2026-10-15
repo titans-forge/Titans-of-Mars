@@ -1,3 +1,4 @@
+import { isOperational } from './buildingStatus.js'
 export const UTILITY_REACH = 2
 
 export function gridDistance(a, b) {
@@ -5,7 +6,7 @@ export function gridDistance(a, b) {
 }
 
 export function buildUtilityNetwork(buildings) {
-  const operational = buildings.filter((building) => building.integrity > 0)
+  const operational = buildings.filter(isOperational)
   const connected = new Set(operational.filter((building) => building.type === 'cargo').map((building) => building.uid))
   const edges = []
 
@@ -41,7 +42,7 @@ export function cellWithinUtilityReach(buildings, network, col, row) {
   const connected = new Set(network.connectedUids)
   return buildings.some((building) => (
     connected.has(building.uid)
-    && building.integrity > 0
+    && isOperational(building)
     && gridDistance(building, { col, row }) <= UTILITY_REACH
   ))
 }

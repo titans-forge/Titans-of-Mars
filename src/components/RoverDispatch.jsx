@@ -1,5 +1,6 @@
 import { Droplets, Hammer, Minus, Plus, Radar, Truck, Wrench, X } from 'lucide-react'
 import { ROVER_ROUTES, ROVER_ROUTE_ORDER, roverOperations } from '../game/roverOperations.js'
+import { constructionStatus } from '../game/construction.js'
 import { surveyStatus } from '../game/siteFeatures.js'
 
 const ROUTE_ICONS = { water: Droplets, construction: Hammer, maintenance: Wrench, survey: Radar }
@@ -11,12 +12,12 @@ function routeImpact(route, state, stats, operations) {
   }
   if (route === 'construction') {
     if (!operations.assignments.construction) return 'No construction support assigned'
-    return `-${operations.constructionDiscount.parts} parts · -${operations.constructionDiscount.cargo.toFixed(1)} t per build`
+    return `${constructionStatus(state, stats).capacity.toFixed(2)} shared work/sol now · -${operations.constructionDiscount.parts} parts / -${operations.constructionDiscount.cargo.toFixed(1)} t per order`
   }
   if (route === 'survey') {
     const survey = surveyStatus(state)
     if (survey.complete) return 'All orbital prospects characterized'
-    if (!operations.assignments.survey) return `${survey.discovered.length}/${survey.total} prospects confirmed`
+    if (!operations.assignments.survey) return `${survey.discovered.length}/${survey.total} prospects confirmed · first confirmation needs 2 rover-sols`
     return `${survey.progress}/${survey.next.surveyThreshold} rover-sols toward ${survey.next.title}`
   }
   if (!operations.assignments.maintenance) return 'No maintenance reduction'
@@ -35,6 +36,7 @@ export default function RoverDispatch({ state, stats, onAssign, onClose }) {
           <div><p>Surface Operations</p><h1 id="rover-title">Rover Dispatch</h1></div>
           <span><strong>{operations.available}</strong> available</span>
         </header>
+        <p className="dialog-pause-note">Time is paused while dispatch is open. Confirming does not resume time. Assign Ground Survey, then use +1 sol from command to confirm orbital ice prospects.</p>
         <div className="rover-route-list">
           {ROVER_ROUTE_ORDER.map((routeId) => {
             const route = ROVER_ROUTES[routeId]
@@ -49,9 +51,9 @@ export default function RoverDispatch({ state, stats, onAssign, onClose }) {
                   <strong>{routeImpact(routeId, state, stats, operations)}</strong>
                 </div>
                 <div className="rover-stepper" aria-label={`${route.title} rover allocation`}>
-                  <button disabled={count === 0} onClick={() => onAssign(routeId, -1)} title={`Remove rover from ${route.title}`} aria-label={`Remove rover from ${route.title}`}><Minus /></button>
+                  <button disabled={count === 0 || Boolean(state.outcome)} onClick={() => onAssign(routeId, -1)} title={`Remove rover from ${route.title}`} aria-label={`Remove rover from ${route.title}`}><Minus /></button>
                   <span><strong>{count}</strong><small>rovers</small></span>
-                  <button disabled={operations.available === 0} onClick={() => onAssign(routeId, 1)} title={`Assign rover to ${route.title}`} aria-label={`Assign rover to ${route.title}`}><Plus /></button>
+                  <button disabled={operations.available === 0 || Boolean(state.outcome)} onClick={() => onAssign(routeId, 1)} title={`Assign rover to ${route.title}`} aria-label={`Assign rover to ${route.title}`}><Plus /></button>
                 </div>
               </article>
             )

@@ -1,15 +1,17 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { BookOpen, ExternalLink, X } from 'lucide-react'
 import { getMarsFieldGuideTopic, marsFieldGuideTopics } from '../game/marsFieldGuide.js'
 
 export default function MarsFieldGuide({ onClose }) {
   const [activeId, setActiveId] = useState(marsFieldGuideTopics[0].id)
+  const tabRefs = useRef([])
   const activeTopic = getMarsFieldGuideTopic(activeId)
 
   const moveSelection = (direction) => {
     const currentIndex = marsFieldGuideTopics.findIndex((topic) => topic.id === activeId)
     const nextIndex = (currentIndex + direction + marsFieldGuideTopics.length) % marsFieldGuideTopics.length
     setActiveId(marsFieldGuideTopics[nextIndex].id)
+    tabRefs.current[nextIndex]?.focus()
   }
 
   return (
@@ -27,6 +29,12 @@ export default function MarsFieldGuide({ onClose }) {
 
         <div className="field-guide-layout">
           <nav className="field-guide-tabs" role="tablist" aria-label="Mars field guide topics" onKeyDown={(event) => {
+            if (event.key === 'Home' || event.key === 'End') {
+              event.preventDefault()
+              const index = event.key === 'Home' ? 0 : marsFieldGuideTopics.length - 1
+              setActiveId(marsFieldGuideTopics[index].id)
+              tabRefs.current[index]?.focus()
+            }
             if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
               event.preventDefault()
               moveSelection(1)
@@ -38,6 +46,8 @@ export default function MarsFieldGuide({ onClose }) {
           }}>
             {marsFieldGuideTopics.map((topic, index) => (
               <button
+                ref={(node) => { tabRefs.current[index] = node }}
+                tabIndex={topic.id === activeId ? 0 : -1}
                 key={topic.id}
                 id={`field-guide-tab-${topic.id}`}
                 className={topic.id === activeId ? 'active' : ''}
@@ -52,7 +62,7 @@ export default function MarsFieldGuide({ onClose }) {
             ))}
           </nav>
 
-          <article id="field-guide-panel" className="field-guide-article" role="tabpanel" aria-labelledby={`field-guide-tab-${activeTopic.id}`}>
+          <article id="field-guide-panel" className="field-guide-article" tabIndex={0} role="tabpanel" aria-labelledby={`field-guide-tab-${activeTopic.id}`}>
             <p className="field-guide-section">{activeTopic.section}</p>
             <h2>{activeTopic.title}</h2>
             <p className="field-guide-summary">{activeTopic.summary}</p>
